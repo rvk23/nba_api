@@ -3,7 +3,7 @@ import json
 import threading
 import time
 
-from nba_api.stats.library.http import NBAStatsHTTP
+from nba_api.stats.library.nba_api_http import NBAStatsHTTP
 from nba_api.stats.library.parameters import *
 
 from datetime import datetime
