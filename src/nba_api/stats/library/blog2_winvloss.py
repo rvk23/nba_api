@@ -8,7 +8,6 @@ import time
 import requests
 
 
-# Retry Wrapper with logging
 def retry(func, retries=3):
     def retry_wrapper(*args, **kwargs):
         attempts = 0
@@ -23,9 +22,7 @@ def retry(func, retries=3):
     return retry_wrapper
 
 
-# Get Season Schedule Function
 def getSeasonScheduleFrame(seasons, seasonType):
-    # Helper functions
     def getGameDate(matchup):
         return matchup.partition(" at")[0][:10]
 
@@ -35,7 +32,7 @@ def getSeasonScheduleFrame(seasons, seasonType):
     def getAwayTeam(matchup):
         return matchup.partition(" at")[0][10:]
 
-    # Map team nickname to team ID
+    # team ID
     def getTeamIDFromNickname(nickname):
         return teamLookup.loc[
             teamLookup["nickname"]
@@ -55,19 +52,18 @@ def getSeasonScheduleFrame(seasons, seasonType):
         teamGames["SEASON"] = season_str
         return teamGames
 
-    # Get team lookup table
+    # team lookup table
     teamLookup = pd.DataFrame(teams.get_teams())
 
-    # Compile schedule for each team for each season
+    # schedule for each team for each season
     scheduleFrame = pd.DataFrame()
     for season in seasons:
         print(f"Processing season {season}...")
         for team_id in teamLookup["id"]:
-            time.sleep(1)  # Adjust as necessary to avoid rate limits
+            time.sleep(1)
             team_schedule = getRegularSeasonSchedule(season, team_id, seasonType)
             scheduleFrame = pd.concat([scheduleFrame, team_schedule], ignore_index=True)
 
-    # Map additional columns
     scheduleFrame["GAME_DATE"] = pd.to_datetime(
         scheduleFrame["MATCHUP"].map(getGameDate)
     )
@@ -83,7 +79,6 @@ def getSeasonScheduleFrame(seasons, seasonType):
     return scheduleFrame
 
 
-# Get Single Game Metrics
 def getSingleGameMetrics(
     gameID, homeTeamID, awayTeamID, awayTeamNickname, seasonYear, gameDate
 ):
@@ -118,7 +113,7 @@ def getSingleGameMetrics(
     return data
 
 
-# Collect all game logs for specified seasons
+# game logs for specified seasons
 def getGameLogs(gameLogs, scheduleFrame):
     for i in range(len(scheduleFrame)):
         print(f"Processing game {i+1}/{len(scheduleFrame)}")
@@ -130,23 +125,26 @@ def getGameLogs(gameLogs, scheduleFrame):
             scheduleFrame.at[i, "SEASON"],
             scheduleFrame.at[i, "GAME_DATE"],
         )
+
+        # home and away games
+        gameMetrics["HOME_FLAG"] = [1, 0]  # 1 for home team, 0 for away team
+        gameMetrics["AWAY_FLAG"] = [0, 1]  # 0 for home team, 1 for away team
+
         gameLogs = pd.concat([gameLogs, gameMetrics], ignore_index=True)
+
     return gameLogs
 
 
-# Main script execution
 if __name__ == "__main__":
-    seasons = list(range(2016, 2024))  # Last 7 years
+    seasons = list(range(2016, 2024))
     seasonType = "Regular Season"
 
-    # Get the schedule frame for all specified seasons
     scheduleFrame = getSeasonScheduleFrame(seasons, seasonType)
 
-    # Initialize DataFrame to hold game logs
     gameLogs = pd.DataFrame()
     gameLogs = getGameLogs(gameLogs, scheduleFrame)
 
-    # Calculate home and road wins and losses for each team by season
+    # home and road wins and losses for each team by season
     win_loss_summary = (
         gameLogs.groupby(["TEAM_ID", "SEASON", "HOME_FLAG"])
         .agg(
@@ -156,11 +154,11 @@ if __name__ == "__main__":
         .reset_index()
     )
 
-    # Split home and road stats
+    # home and road stats
     home_summary = win_loss_summary[win_loss_summary["HOME_FLAG"] == 1].copy()
     road_summary = win_loss_summary[win_loss_summary["HOME_FLAG"] == 0].copy()
 
-    # Calculate win percentages
+    # win percentages
     home_summary["home_win_percentage"] = home_summary["total_wins"] / (
         home_summary["total_wins"] + home_summary["total_losses"]
     )
@@ -168,7 +166,7 @@ if __name__ == "__main__":
         road_summary["total_wins"] + road_summary["total_losses"]
     )
 
-    # Merge home and road summaries
+    # home and road summaries
     win_loss_combined = pd.merge(
         home_summary[["TEAM_ID", "SEASON", "home_win_percentage"]],
         road_summary[["TEAM_ID", "SEASON", "road_win_percentage"]],
@@ -176,7 +174,7 @@ if __name__ == "__main__":
         how="outer",
     )
 
-    # Output the result to a CSV file
+    # CSV file
     win_loss_combined.to_csv("nba_home_road_win_percentage_2016_2024.csv", index=False)
     print(
         "Home and road win percentages saved to nba_home_road_win_percentage_2016_2024.csv"
